@@ -27,6 +27,8 @@ end
 access_key = nil
 secret_key = nil
 thread_count = 10
+max_queue_size = 10_000
+start = Time.now
 buckets = []
 
 # Parse the command line
@@ -47,6 +49,7 @@ begin
           '--threads COUNT', 
           Integer, 
           "Number of simultaneous threads (default #{thread_count})") {|val| thread_count = val}
+  opts.on('-q', '--queue', Integer, "Maximum queue size (default #{max_queue_size})") {|val| max_queue_size = val}
   opts.on('-h', '--help', 'Show this message') do
     puts opts
     exit
@@ -91,6 +94,7 @@ buckets.each do |bucket|
   threads = []
   queue = Queue.new
   mutex_total = Mutex.new
+  mutex_time = Mutex.new
   
   # Tracking variables
   total_listed = 0
@@ -103,6 +107,9 @@ buckets.each do |bucket|
     s3 = RightAws::S3Interface.new(access_key, secret_key, :multi_thread => true, :port => 80, :protocol => 'http', :logger => log)
     prefix = ''
     begin
+      while total_listed - total_deleted > max_queue_size
+        sleep 2
+      end
       keys = s3.list_bucket(bucket, :marker => prefix)
       prefix = keys.last[:key] unless keys.empty?
       keys.each do |key|
@@ -123,7 +130,10 @@ buckets.each do |bucket|
         unless key == :END_OF_BUCKET
           s3.delete(bucket, key) 
           mutex_total.synchronize {total_deleted += 1}
-          print "Deleted #{total_deleted} out of #{total_listed}\n" if (rand(1000) == 1)
+          if total_deleted % 1000 == 0
+            items_per_seconds = total_deleted / (Time.now - start)
+            puts "Deleted #{total_deleted} out of #{total_listed}; #{items_per_seconds}/s"
+          end
         end
       end until (key == :END_OF_BUCKET)
     end  
