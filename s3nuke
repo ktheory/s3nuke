@@ -49,7 +49,7 @@ begin
           '--threads COUNT', 
           Integer, 
           "Number of simultaneous threads (default #{thread_count})") {|val| thread_count = val}
-  opts.on('-q', '--queue', Integer, "Maximum queue size (default #{max_queue_size})") {|val| max_queue_size = val}
+  opts.on('-q', '--queue SIZE', Integer, "Maximum queue size (default #{max_queue_size})") {|val| max_queue_size = val}
   opts.on('-h', '--help', 'Show this message') do
     puts opts
     exit
